@@ -8,23 +8,23 @@
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 
-<PageTitle>Kitchen Dashboard - SeatEats</PageTitle>
+<PageTitle>Kitchen - FoodFound</PageTitle>
 
 <div class="container-fluid py-3">
     <div class="row mb-3">
         <div class="col">
-            <h2>👨‍🍳 Kitchen Dashboard</h2>
+            <h2><span style="color: #ff6b35;">👨‍🍳 Kitchen</span> Dashboard</h2>
         </div>
         <div class="col-auto">
             <span class="badge @(_hubConnection?.State == HubConnectionState.Connected ? "bg-success" : "bg-warning") fs-6">
-                @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live Updates" : "🔄 Connecting...")
+                @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄 Connecting...")
             </span>
         </div>
     </div>
 
     <div class="row">
         <div class="col-md-4">
-            <div class="card border-danger h-100">
+            <div class="card h-100 shadow-sm" style="border-top: 4px solid #dc3545;">
                 <div class="card-header bg-danger text-white d-flex justify-content-between">
                     <span>🆕 New Orders</span>
                     <span class="badge bg-white text-danger">@_receivedOrders.Count</span>
@@ -33,27 +33,24 @@
                     @foreach (var order in _receivedOrders)
                     {
                         <div class="card mb-2 border-danger">
-                            <div class="card-body p-2">
+                            <div class="card-body p-3">
                                 <div class="d-flex justify-content-between mb-2">
                                     <strong class="text-danger">@order.SeatLocation</strong>
                                     <small class="text-muted">@order.CreatedAt.ToLocalTime().ToString("HH:mm")</small>
                                 </div>
                                 <ul class="list-unstyled mb-2">
-                                    @foreach (var item in order.Items)
-                                    {
-                                        <li><small>@item.Quantity x @item.Name</small></li>
-                                    }
+                                    @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
                                 </ul>
                                 <button class="btn btn-warning btn-sm w-100" @onclick="() => MarkAsPreparing(order.Id)">Start Preparing</button>
                             </div>
                         </div>
                     }
-                    @if (!_receivedOrders.Any()) { <p class="text-muted text-center">No new orders</p> }
+                    @if (!_receivedOrders.Any()) { <p class="text-muted text-center py-4">No new orders</p> }
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card border-warning h-100">
+            <div class="card h-100 shadow-sm" style="border-top: 4px solid #ffc107;">
                 <div class="card-header bg-warning d-flex justify-content-between">
                     <span>🔥 Preparing</span>
                     <span class="badge bg-dark">@_preparingOrders.Count</span>
@@ -62,24 +59,24 @@
                     @foreach (var order in _preparingOrders)
                     {
                         <div class="card mb-2 border-warning">
-                            <div class="card-body p-2">
+                            <div class="card-body p-3">
                                 <div class="d-flex justify-content-between mb-2">
-                                    <strong class="text-warning">@order.SeatLocation</strong>
+                                    <strong style="color: #ff6b35;">@order.SeatLocation</strong>
                                     <small class="text-muted">@order.CreatedAt.ToLocalTime().ToString("HH:mm")</small>
                                 </div>
                                 <ul class="list-unstyled mb-2">
                                     @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
                                 </ul>
-                                <button class="btn btn-success btn-sm w-100" @onclick="() => MarkAsReady(order.Id)">Mark Ready</button>
+                                <button class="btn btn-success btn-sm w-100" @onclick="() => MarkAsReady(order.Id)">Mark Ready ✓</button>
                             </div>
                         </div>
                     }
-                    @if (!_preparingOrders.Any()) { <p class="text-muted text-center">Nothing cooking</p> }
+                    @if (!_preparingOrders.Any()) { <p class="text-muted text-center py-4">Nothing cooking</p> }
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card border-success h-100">
+            <div class="card h-100 shadow-sm" style="border-top: 4px solid #28a745;">
                 <div class="card-header bg-success text-white d-flex justify-content-between">
                     <span>✅ Ready</span>
                     <span class="badge bg-white text-success">@_readyOrders.Count</span>
@@ -88,16 +85,16 @@
                     @foreach (var order in _readyOrders)
                     {
                         <div class="card mb-2 border-success">
-                            <div class="card-body p-2">
+                            <div class="card-body p-3">
                                 <strong class="text-success">@order.SeatLocation</strong>
                                 <ul class="list-unstyled mb-0 mt-2">
                                     @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
                                 </ul>
-                                <div class="mt-2 text-center"><span class="badge bg-info">Waiting for runner...</span></div>
+                                <div class="mt-2 text-center"><span class="badge" style="background-color: #ff6b35;">Waiting for runner</span></div>
                             </div>
                         </div>
                     }
-                    @if (!_readyOrders.Any()) { <p class="text-muted text-center">No orders ready</p> }
+                    @if (!_readyOrders.Any()) { <p class="text-muted text-center py-4">No orders ready</p> }
                 </div>
             </div>
         </div>
@@ -115,20 +112,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !_initialized)
-        {
-            _initialized = true;
-            await SetupSignalR();
-            StateHasChanged();
-        }
+        if (firstRender && !_initialized) { _initialized = true; await SetupSignalR(); StateHasChanged(); }
     }
 
     private async Task SetupSignalR()
     {
-        _hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/orderhub"))
-            .WithAutomaticReconnect()
-            .Build();
+        _hubConnection = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/orderhub")).WithAutomaticReconnect().Build();
         _hubConnection.On<Guid, string>("NewOrderReceived", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
         _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
         await _hubConnection.StartAsync();

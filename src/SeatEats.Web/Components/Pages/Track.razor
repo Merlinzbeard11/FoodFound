@@ -8,27 +8,25 @@
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 
-<PageTitle>Track Order - SeatEats</PageTitle>
+<PageTitle>Track Order - FoodFound</PageTitle>
 
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
             @if (_order == null)
             {
-                <div class="text-center py-5"><div class="spinner-border text-danger"></div></div>
+                <div class="text-center py-5"><div class="spinner-border" style="color: #ff6b35;"></div></div>
             }
             else
             {
-                <div class="card">
-                    <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
-                        <h4 class="mb-0">📍 Order Tracking</h4>
-                        <span class="badge bg-light text-dark">
-                            @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄")
-                        </span>
+                <div class="card shadow border-0">
+                    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #ff6b35;">
+                        <h4 class="mb-0">📍 Track Your Order</h4>
+                        <span class="badge bg-light text-dark">@(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄")</span>
                     </div>
                     <div class="card-body">
                         <div class="text-center mb-4">
-                            <h5>Delivering to: <span class="text-primary">@_order.SeatLocation</span></h5>
+                            <h5>Delivering to: <span style="color: #ff6b35;">@_order.SeatLocation</span></h5>
                         </div>
                         <div class="d-flex justify-content-between mb-4 position-relative">
                             <div class="position-absolute top-50 start-0 end-0" style="height: 4px; background: #e9ecef; z-index: 0; transform: translateY(-50%);"></div>
@@ -37,15 +35,17 @@
                                 var isActive = _order.Status >= status;
                                 var isCurrent = _order.Status == status;
                                 <div class="text-center position-relative" style="z-index: 1;">
-                                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 @(isActive ? "bg-success" : "bg-secondary")" 
-                                         style="width: 50px; height: 50px; @(isCurrent ? "box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.3);" : "")">
+                                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2" 
+                                         style="width: 50px; height: 50px; background-color: @(isActive ? "#28a745" : "#6c757d"); @(isCurrent ? "box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.4);" : "")">
                                         <span class="fs-4">@emoji</span>
                                     </div>
-                                    <small class="@(isActive ? "text-success fw-bold" : "text-muted")">@label</small>
+                                    <small class="@(isActive ? "fw-bold" : "text-muted")" style="@(isActive ? "color: #28a745;" : "")">@label</small>
                                 </div>
                             }
                         </div>
-                        <div class="alert @GetStatusAlertClass() text-center"><h5 class="mb-0">@GetStatusMessage()</h5></div>
+                        <div class="alert text-center" style="background-color: #fff3e6; border-color: #ff6b35;">
+                            <h5 class="mb-0" style="color: #ff6b35;">@GetStatusMessage()</h5>
+                        </div>
                         <h6 class="mt-4">Order Details</h6>
                         <ul class="list-group">
                             @foreach (var item in _order.Items)
@@ -54,13 +54,13 @@
                                     <span>@item.Quantity x @item.Name</span><span>$@item.TotalPrice.ToString("F2")</span>
                                 </li>
                             }
-                            <li class="list-group-item d-flex justify-content-between fw-bold">
-                                <span>Total</span><span>$@_order.TotalAmount.ToString("F2")</span>
+                            <li class="list-group-item d-flex justify-content-between fw-bold" style="background-color: #fff3e6;">
+                                <span>Total</span><span style="color: #ff6b35;">$@_order.TotalAmount.ToString("F2")</span>
                             </li>
                         </ul>
                         @if (_order.Status == OrderStatus.Delivered)
                         {
-                            <div class="text-center mt-4"><a href="/order" class="btn btn-danger btn-lg">Order Again 🍔</a></div>
+                            <div class="text-center mt-4"><a href="/order" class="btn btn-lg" style="background-color: #ff6b35; color: white;">Order Again 🍔</a></div>
                         }
                     </div>
                 </div>
@@ -77,61 +77,36 @@
     
     private static readonly (OrderStatus, string, string)[] _steps = new[] {
         (OrderStatus.Received, "📝", "Received"),
-        (OrderStatus.Preparing, "🔥", "Preparing"),
+        (OrderStatus.Preparing, "🔥", "Cooking"),
         (OrderStatus.Ready, "✅", "Ready"),
         (OrderStatus.EnRoute, "🏃", "On Way"),
-        (OrderStatus.Delivered, "🎉", "Delivered")
+        (OrderStatus.Delivered, "🎉", "Done!")
     };
 
     protected override async Task OnInitializedAsync() => await LoadOrder();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !_initialized)
-        {
-            _initialized = true;
-            await SetupSignalR();
-            StateHasChanged();
-        }
+        if (firstRender && !_initialized) { _initialized = true; await SetupSignalR(); StateHasChanged(); }
     }
 
     private async Task SetupSignalR()
     {
-        _hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/orderhub"))
-            .WithAutomaticReconnect()
-            .Build();
-        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (id, _) =>
-        {
-            if (id == OrderId) { await LoadOrder(); await InvokeAsync(StateHasChanged); }
-        });
+        _hubConnection = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/orderhub")).WithAutomaticReconnect().Build();
+        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (id, _) => { if (id == OrderId) { await LoadOrder(); await InvokeAsync(StateHasChanged); } });
         await _hubConnection.StartAsync();
         await _hubConnection.InvokeAsync("JoinOrderGroup", OrderId.ToString());
     }
 
-    private async Task LoadOrder()
-    {
-        var result = await OrderService.GetOrderAsync(OrderId);
-        if (result.IsSuccess) _order = result.Value;
-    }
-
-    private string GetStatusAlertClass() => _order?.Status switch
-    {
-        OrderStatus.Received => "alert-info",
-        OrderStatus.Preparing => "alert-warning",
-        OrderStatus.Ready => "alert-success",
-        OrderStatus.EnRoute => "alert-primary",
-        OrderStatus.Delivered => "alert-success",
-        _ => "alert-secondary"
-    };
+    private async Task LoadOrder() { var result = await OrderService.GetOrderAsync(OrderId); if (result.IsSuccess) _order = result.Value; }
 
     private string GetStatusMessage() => _order?.Status switch
     {
-        OrderStatus.Received => "Order received!",
-        OrderStatus.Preparing => "Kitchen is preparing...",
-        OrderStatus.Ready => "Ready for pickup!",
-        OrderStatus.EnRoute => "Runner on the way!",
-        OrderStatus.Delivered => "Enjoy! 🎉",
+        OrderStatus.Received => "Order received! Kitchen notified.",
+        OrderStatus.Preparing => "Kitchen is cooking your food...",
+        OrderStatus.Ready => "Ready! Runner picking up now.",
+        OrderStatus.EnRoute => "Runner is on the way to your seat!",
+        OrderStatus.Delivered => "Delivered! Enjoy your meal! 🎉",
         _ => "Unknown"
     };
 

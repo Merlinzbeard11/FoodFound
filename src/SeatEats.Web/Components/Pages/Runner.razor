@@ -8,14 +8,14 @@
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 
-<PageTitle>Runner Dashboard - SeatEats</PageTitle>
+<PageTitle>Runner - FoodFound</PageTitle>
 
 <div class="container py-3">
     <div class="row mb-3">
-        <div class="col"><h2>🏃 Runner Dashboard</h2></div>
+        <div class="col"><h2><span style="color: #ff6b35;">🏃 Runner</span> Dashboard</h2></div>
         <div class="col-auto">
             <span class="badge @(_hubConnection?.State == HubConnectionState.Connected ? "bg-success" : "bg-warning") fs-6">
-                @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄 Connecting...")
+                @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄")
             </span>
         </div>
     </div>
@@ -24,12 +24,14 @@
     {
         <div class="row mb-4">
             <div class="col-12">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white"><h5 class="mb-0">📦 Your Active Delivery</h5></div>
+                <div class="card shadow" style="border-top: 4px solid #ff6b35;">
+                    <div class="card-header text-white" style="background-color: #ff6b35;">
+                        <h5 class="mb-0">📦 Active Delivery</h5>
+                    </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <h3 class="text-primary">@_myActiveOrder.SeatLocation</h3>
+                                <h3 style="color: #ff6b35;">@_myActiveOrder.SeatLocation</h3>
                                 <ul class="list-group list-group-flush">
                                     @foreach (var item in _myActiveOrder.Items)
                                     {
@@ -42,7 +44,7 @@
                             </div>
                             <div class="col-md-6 d-flex flex-column justify-content-center align-items-center">
                                 <div class="display-4 mb-3">🎯</div>
-                                <button class="btn btn-success btn-lg w-100" @onclick="MarkDelivered">Mark as Delivered</button>
+                                <button class="btn btn-success btn-lg w-100" @onclick="MarkDelivered">Mark Delivered ✓</button>
                             </div>
                         </div>
                     </div>
@@ -53,7 +55,7 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="card">
+            <div class="card shadow-sm" style="border-top: 4px solid #28a745;">
                 <div class="card-header bg-success text-white d-flex justify-content-between">
                     <span>🍔 Ready for Pickup</span>
                     <span class="badge bg-white text-success">@_readyOrders.Count</span>
@@ -73,8 +75,8 @@
                                                 @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
                                             </ul>
                                             <div class="d-flex justify-content-between align-items-center mt-3">
-                                                <span class="fw-bold">$@order.TotalAmount.ToString("F2")</span>
-                                                <button class="btn btn-primary" @onclick="() => ClaimOrder(order.Id)" disabled="@(_myActiveOrder != null)">Claim</button>
+                                                <span class="fw-bold" style="color: #ff6b35;">$@order.TotalAmount.ToString("F2")</span>
+                                                <button class="btn" style="background-color: #ff6b35; color: white;" @onclick="() => ClaimOrder(order.Id)" disabled="@(_myActiveOrder != null)">Claim</button>
                                             </div>
                                         </div>
                                     </div>
@@ -106,20 +108,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !_initialized)
-        {
-            _initialized = true;
-            await SetupSignalR();
-            StateHasChanged();
-        }
+        if (firstRender && !_initialized) { _initialized = true; await SetupSignalR(); StateHasChanged(); }
     }
 
     private async Task SetupSignalR()
     {
-        _hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/orderhub"))
-            .WithAutomaticReconnect()
-            .Build();
+        _hubConnection = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/orderhub")).WithAutomaticReconnect().Build();
         _hubConnection.On<Guid, string>("OrderReady", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
         _hubConnection.On<Guid>("OrderClaimed", async (_) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
         _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
@@ -144,11 +138,7 @@
 
     private async Task MarkDelivered()
     {
-        if (_myActiveOrder != null)
-        {
-            await OrderService.UpdateOrderStatusAsync(_myActiveOrder.Id, OrderStatus.Delivered);
-            _myActiveOrder = null;
-        }
+        if (_myActiveOrder != null) { await OrderService.UpdateOrderStatusAsync(_myActiveOrder.Id, OrderStatus.Delivered); _myActiveOrder = null; }
         await LoadOrders();
     }
 
