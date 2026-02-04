@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kitchen - FoodFound</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        button, [data-action] { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0.1); }
+    </style>
 </head>
 <body>
 <div class="container-fluid py-3">
     <div class="row mb-3">
         <div class="col"><h2><span style="color: #ff6b35;">Kitchen</span> Dashboard</h2></div>
-        <div class="col-auto"><button class="btn btn-outline-secondary" onclick="loadOrders()">Refresh</button></div>
+        <div class="col-auto"><button class="btn btn-outline-secondary" data-action="refresh">Refresh</button></div>
     </div>
     <div class="row">
         <div class="col-md-4">
@@ -42,17 +45,21 @@
 <script>
 // OrderStatus enum: Received=1, Preparing=2, Ready=3, EnRoute=4, Delivered=5
 async function loadOrders() {
-    const [r1, r2, r3] = await Promise.all([
-        fetch('/api/orders/status/1').then(r => r.json()),
-        fetch('/api/orders/status/2').then(r => r.json()),
-        fetch('/api/orders/status/3').then(r => r.json())
-    ]);
-    renderOrders('received', r1, 'danger', 'Start Preparing', 2);
-    renderOrders('preparing', r2, 'warning', 'Mark Ready', 3);
-    renderOrders('ready', r3, 'success', null, null);
-    document.getElementById('received-count').textContent = r1.length;
-    document.getElementById('preparing-count').textContent = r2.length;
-    document.getElementById('ready-count').textContent = r3.length;
+    try {
+        const [r1, r2, r3] = await Promise.all([
+            fetch('/api/orders/status/1').then(r => r.json()),
+            fetch('/api/orders/status/2').then(r => r.json()),
+            fetch('/api/orders/status/3').then(r => r.json())
+        ]);
+        renderOrders('received', r1, 'danger', 'Start Preparing', 2);
+        renderOrders('preparing', r2, 'warning', 'Mark Ready', 3);
+        renderOrders('ready', r3, 'success', null, null);
+        document.getElementById('received-count').textContent = r1.length;
+        document.getElementById('preparing-count').textContent = r2.length;
+        document.getElementById('ready-count').textContent = r3.length;
+    } catch (e) {
+        console.error('Error loading orders:', e);
+    }
 }
 
 function renderOrders(type, orders, color, btnText, nextStatus) {
@@ -70,7 +77,7 @@ function renderOrders(type, orders, color, btnText, nextStatus) {
         o.items.forEach(i => { html += '<li><small>' + i.quantity + ' x ' + i.name + '</small></li>'; });
         html += '</ul>';
         if (btnText) {
-            html += '<button class="btn btn-' + (nextStatus === 2 ? 'warning' : 'success') + ' btn-sm w-100" onclick="updateStatus(\'' + o.id + '\',' + nextStatus + ')">' + btnText + '</button>';
+            html += '<button class="btn btn-' + (nextStatus === 2 ? 'warning' : 'success') + ' btn-sm w-100" data-action="update-status" data-id="' + o.id + '" data-status="' + nextStatus + '">' + btnText + '</button>';
         } else {
             html += '<div class="text-center"><span class="badge" style="background-color: #ff6b35;">Waiting for runner</span></div>';
         }
@@ -79,14 +86,28 @@ function renderOrders(type, orders, color, btnText, nextStatus) {
     container.innerHTML = html;
 }
 
-async function updateStatus(id, status) {
-    await fetch('/api/orders/' + id + '/status', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: status })
-    });
-    loadOrders();
-}
+document.addEventListener('click', async function(e) {
+    const action = e.target.dataset.action;
+    if (action === 'refresh') {
+        loadOrders();
+    } else if (action === 'update-status') {
+        const id = e.target.dataset.id;
+        const status = parseInt(e.target.dataset.status);
+        e.target.disabled = true;
+        e.target.textContent = 'Updating...';
+        try {
+            await fetch('/api/orders/' + id + '/status', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: status })
+            });
+            loadOrders();
+        } catch (err) {
+            alert('Error updating order');
+            e.target.disabled = false;
+        }
+    }
+});
 
 loadOrders();
 setInterval(loadOrders, 5000);
