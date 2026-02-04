@@ -13,7 +13,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
-ENV ASPNETCORE_URLS=http://+:$PORT
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-ENTRYPOINT ["dotnet", "SeatEats.Web.dll"]
+EXPOSE 8080
+CMD ["sh", "-c", "dotnet SeatEats.Web.dll --urls http://+:${PORT:-8080}"]
