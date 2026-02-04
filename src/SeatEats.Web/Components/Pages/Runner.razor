@@ -1,0 +1,195 @@
+@page "/runner"
+@using Microsoft.AspNetCore.SignalR.Client
+@using SeatEats.Application.DTOs
+@using SeatEats.Application.Services
+@using SeatEats.Domain.Enums
+@inject OrderService OrderService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Runner Dashboard - SeatEats</PageTitle>
+
+<div class="container py-3">
+    <div class="row mb-3">
+        <div class="col">
+            <h2>🏃 Runner Dashboard</h2>
+        </div>
+        <div class="col-auto">
+            <span class="badge @(_hubConnection?.State == HubConnectionState.Connected ? "bg-success" : "bg-warning") fs-6">
+                @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live Updates" : "🔄 Connecting...")
+            </span>
+        </div>
+    </div>
+
+    @if (_myActiveOrder != null)
+    {
+        <!-- Active Delivery -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">📦 Your Active Delivery</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h3 class="text-primary">@_myActiveOrder.SeatLocation</h3>
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var item in _myActiveOrder.Items)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between">
+                                            <span>@item.Quantity x @item.Name</span>
+                                            <span class="badge bg-secondary">$@item.TotalPrice.ToString("F2")</span>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                            <div class="col-md-6 d-flex flex-column justify-content-center align-items-center">
+                                <div class="display-4 mb-3">🎯</div>
+                                <button class="btn btn-success btn-lg w-100" @onclick="MarkDelivered">
+                                    Mark as Delivered ✓
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Available Orders -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white d-flex justify-content-between">
+                    <span>🍔 Ready for Pickup</span>
+                    <span class="badge bg-white text-success">@_readyOrders.Count available</span>
+                </div>
+                <div class="card-body">
+                    @if (_readyOrders.Any())
+                    {
+                        <div class="row">
+                            @foreach (var order in _readyOrders)
+                            {
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100 border-success">
+                                        <div class="card-body">
+                                            <h5 class="card-title text-success">@order.SeatLocation</h5>
+                                            <p class="text-muted mb-2">
+                                                <small>Order placed: @order.CreatedAt.ToLocalTime().ToString("HH:mm")</small>
+                                            </p>
+                                            <ul class="list-unstyled">
+                                                @foreach (var item in order.Items)
+                                                {
+                                                    <li><small>@item.Quantity x @item.Name</small></li>
+                                                }
+                                            </ul>
+                                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                                <span class="fw-bold">$@order.TotalAmount.ToString("F2")</span>
+                                                <button class="btn btn-primary" 
+                                                        @onclick="() => ClaimOrder(order.Id)"
+                                                        disabled="@(_myActiveOrder != null)">
+                                                    Claim Order
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <div class="display-1 mb-3">☕</div>
+                            <p class="text-muted">No orders ready for pickup. Take a breather!</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<OrderResponse> _readyOrders = new();
+    private OrderResponse? _myActiveOrder;
+    private Guid _runnerId = Guid.NewGuid();
+    private HubConnection? _hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrders();
+        await SetupSignalR();
+    }
+
+    private async Task SetupSignalR()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/orderhub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<Guid, string>("OrderReady", async (orderId, seatLocation) =>
+        {
+            await LoadOrders();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<Guid>("OrderClaimed", async (orderId) =>
+        {
+            await LoadOrders();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (orderId, newStatus) =>
+        {
+            await LoadOrders();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await _hubConnection.StartAsync();
+        await _hubConnection.InvokeAsync("JoinRunnerGroup");
+    }
+
+    private async Task LoadOrders()
+    {
+        var ready = await OrderService.GetOrdersByStatusAsync(OrderStatus.Ready);
+        if (ready.IsSuccess) _readyOrders = ready.Value!.ToList();
+
+        var enRoute = await OrderService.GetOrdersByStatusAsync(OrderStatus.EnRoute);
+        if (enRoute.IsSuccess)
+        {
+            _myActiveOrder = enRoute.Value!.FirstOrDefault();
+        }
+    }
+
+    private async Task ClaimOrder(Guid orderId)
+    {
+        var result = await OrderService.UpdateOrderStatusAsync(orderId, OrderStatus.EnRoute, _runnerId);
+        if (result.IsSuccess)
+        {
+            _myActiveOrder = result.Value;
+        }
+        await LoadOrders();
+    }
+
+    private async Task MarkDelivered()
+    {
+        if (_myActiveOrder != null)
+        {
+            await OrderService.UpdateOrderStatusAsync(_myActiveOrder.Id, OrderStatus.Delivered);
+            _myActiveOrder = null;
+        }
+        await LoadOrders();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}
