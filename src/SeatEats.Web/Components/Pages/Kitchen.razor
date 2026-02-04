@@ -15,7 +15,8 @@
         <div class="col">
             <h2><span style="color: #ff6b35;">👨‍🍳 Kitchen</span> Dashboard</h2>
         </div>
-        <div class="col-auto">
+        <div class="col-auto d-flex align-items-center gap-2">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="LoadOrders">🔄 Refresh</button>
             <span class="badge @(_hubConnection?.State == HubConnectionState.Connected ? "bg-success" : "bg-warning") fs-6">
                 @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄 Connecting...")
             </span>

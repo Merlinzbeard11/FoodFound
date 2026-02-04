@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using SeatEats.Application.Interfaces;
 using SeatEats.Application.Services;
 using SeatEats.Web.Components;
@@ -5,6 +6,14 @@ using SeatEats.Web.Hubs;
 using SeatEats.Web.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure forwarded headers for Railway proxy
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -22,14 +31,15 @@ builder.Services.AddScoped<MenuService>();
 
 var app = builder.Build();
 
+// Use forwarded headers (must be first)
+app.UseForwardedHeaders();
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
-
-app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
