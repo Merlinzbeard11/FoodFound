@@ -87,14 +87,16 @@ function renderOrders(type, orders, color, btnText, nextStatus) {
 }
 
 document.addEventListener('click', async function(e) {
-    const action = e.target.dataset.action;
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
     if (action === 'refresh') {
         loadOrders();
     } else if (action === 'update-status') {
-        const id = e.target.dataset.id;
-        const status = parseInt(e.target.dataset.status);
-        e.target.disabled = true;
-        e.target.textContent = 'Updating...';
+        const id = btn.dataset.id;
+        const status = parseInt(btn.dataset.status);
+        btn.disabled = true;
+        btn.textContent = 'Updating...';
         try {
             await fetch('/api/orders/' + id + '/status', {
                 method: 'PUT',
@@ -104,7 +106,7 @@ document.addEventListener('click', async function(e) {
             loadOrders();
         } catch (err) {
             alert('Error updating order');
-            e.target.disabled = false;
+            btn.disabled = false;
         }
     }
 });

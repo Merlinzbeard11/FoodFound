@@ -106,13 +106,15 @@ function renderReady(orders) {
 }
 
 document.addEventListener('click', async function(e) {
-    const action = e.target.dataset.action;
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
     if (action === 'refresh') {
         loadOrders();
     } else if (action === 'claim') {
-        const id = e.target.dataset.id;
-        e.target.disabled = true;
-        e.target.textContent = 'Claiming...';
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        btn.textContent = 'Claiming...';
         try {
             await fetch('/api/orders/' + id + '/status', {
                 method: 'PUT',
@@ -122,12 +124,12 @@ document.addEventListener('click', async function(e) {
             loadOrders();
         } catch (err) {
             alert('Error claiming order');
-            e.target.disabled = false;
+            btn.disabled = false;
         }
     } else if (action === 'deliver') {
-        const id = e.target.dataset.id;
-        e.target.disabled = true;
-        e.target.textContent = 'Delivering...';
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        btn.textContent = 'Delivering...';
         try {
             await fetch('/api/orders/' + id + '/status', {
                 method: 'PUT',
@@ -138,7 +140,7 @@ document.addEventListener('click', async function(e) {
             loadOrders();
         } catch (err) {
             alert('Error marking delivered');
-            e.target.disabled = false;
+            btn.disabled = false;
         }
     }
 });

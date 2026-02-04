@@ -129,12 +129,14 @@ function renderMenu() {
 }
 
 document.addEventListener('click', function(e) {
-    if (e.target.dataset.action === 'add') {
-        const id = e.target.dataset.id;
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const id = btn.dataset.id;
+    if (action === 'add') {
         cart[id] = (cart[id] || 0) + 1;
         renderMenu();
-    } else if (e.target.dataset.action === 'remove') {
-        const id = e.target.dataset.id;
+    } else if (action === 'remove') {
         if (cart[id]) { cart[id]--; if (cart[id] <= 0) delete cart[id]; }
         renderMenu();
     }
