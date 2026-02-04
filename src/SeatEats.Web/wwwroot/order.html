@@ -8,9 +8,17 @@
     <style>
         .brand-color { color: #ff6b35; }
         .brand-bg { background-color: #ff6b35; }
-        /* Fix iOS click events */
-        [data-action] { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,0.1); }
-        button { cursor: pointer; touch-action: manipulation; }
+        /* Mobile touch fixes */
+        [data-action], button {
+            cursor: pointer;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        /* Ensure minimum touch target */
+        .btn { min-height: 44px; min-width: 44px; }
     </style>
 </head>
 <body>
@@ -128,9 +136,10 @@ function renderMenu() {
     updateCart();
 }
 
-document.addEventListener('click', function(e) {
+function handleAction(e) {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
+    e.preventDefault();
     const action = btn.dataset.action;
     const id = btn.dataset.id;
     if (action === 'add') {
@@ -140,7 +149,9 @@ document.addEventListener('click', function(e) {
         if (cart[id]) { cart[id]--; if (cart[id] <= 0) delete cart[id]; }
         renderMenu();
     }
-});
+}
+document.addEventListener('click', handleAction);
+document.addEventListener('touchend', handleAction);
 
 function updateCart() {
     const cartSection = document.getElementById('cart-section');
