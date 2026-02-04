@@ -15,11 +15,7 @@
         <div class="col-md-8">
             @if (_order == null)
             {
-                <div class="text-center py-5">
-                    <div class="spinner-border text-danger" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                </div>
+                <div class="text-center py-5"><div class="spinner-border text-danger"></div></div>
             }
             else
             {
@@ -27,68 +23,44 @@
                     <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">📍 Order Tracking</h4>
                         <span class="badge bg-light text-dark">
-                            @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔴 Connecting...")
+                            @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄")
                         </span>
                     </div>
                     <div class="card-body">
                         <div class="text-center mb-4">
                             <h5>Delivering to: <span class="text-primary">@_order.SeatLocation</span></h5>
                         </div>
-
-                        <!-- Progress Steps -->
                         <div class="d-flex justify-content-between mb-4 position-relative">
                             <div class="position-absolute top-50 start-0 end-0" style="height: 4px; background: #e9ecef; z-index: 0; transform: translateY(-50%);"></div>
-                            
-                            @{
-                                var steps = new[] { 
-                                    (OrderStatus.Received, "📝", "Received"),
-                                    (OrderStatus.Preparing, "🔥", "Preparing"),
-                                    (OrderStatus.Ready, "✅", "Ready"),
-                                    (OrderStatus.EnRoute, "🏃", "On the Way"),
-                                    (OrderStatus.Delivered, "🎉", "Delivered")
-                                };
-                            }
-                            
-                            @foreach (var (status, emoji, label) in steps)
+                            @foreach (var (status, emoji, label) in _steps)
                             {
                                 var isActive = _order.Status >= status;
                                 var isCurrent = _order.Status == status;
                                 <div class="text-center position-relative" style="z-index: 1;">
                                     <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 @(isActive ? "bg-success" : "bg-secondary")" 
-                                         style="width: 50px; height: 50px; @(isCurrent ? "box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.3); animation: pulse 2s infinite;" : "")">
+                                         style="width: 50px; height: 50px; @(isCurrent ? "box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.3);" : "")">
                                         <span class="fs-4">@emoji</span>
                                     </div>
                                     <small class="@(isActive ? "text-success fw-bold" : "text-muted")">@label</small>
                                 </div>
                             }
                         </div>
-
-                        <!-- Current Status -->
-                        <div class="alert @GetStatusAlertClass() text-center">
-                            <h5 class="mb-0">@GetStatusMessage()</h5>
-                        </div>
-
-                        <!-- Order Details -->
+                        <div class="alert @GetStatusAlertClass() text-center"><h5 class="mb-0">@GetStatusMessage()</h5></div>
                         <h6 class="mt-4">Order Details</h6>
                         <ul class="list-group">
                             @foreach (var item in _order.Items)
                             {
                                 <li class="list-group-item d-flex justify-content-between">
-                                    <span>@item.Quantity x @item.Name</span>
-                                    <span>$@item.TotalPrice.ToString("F2")</span>
+                                    <span>@item.Quantity x @item.Name</span><span>$@item.TotalPrice.ToString("F2")</span>
                                 </li>
                             }
                             <li class="list-group-item d-flex justify-content-between fw-bold">
-                                <span>Total</span>
-                                <span>$@_order.TotalAmount.ToString("F2")</span>
+                                <span>Total</span><span>$@_order.TotalAmount.ToString("F2")</span>
                             </li>
                         </ul>
-
                         @if (_order.Status == OrderStatus.Delivered)
                         {
-                            <div class="text-center mt-4">
-                                <a href="/order" class="btn btn-danger btn-lg">Order Again 🍔</a>
-                            </div>
+                            <div class="text-center mt-4"><a href="/order" class="btn btn-danger btn-lg">Order Again 🍔</a></div>
                         }
                     </div>
                 </div>
@@ -97,24 +69,30 @@
     </div>
 </div>
 
-<style>
-    @@keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(25, 135, 84, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
-    }
-</style>
-
 @code {
     [Parameter] public Guid OrderId { get; set; }
-    
     private OrderResponse? _order;
     private HubConnection? _hubConnection;
+    private bool _initialized;
+    
+    private static readonly (OrderStatus, string, string)[] _steps = new[] {
+        (OrderStatus.Received, "📝", "Received"),
+        (OrderStatus.Preparing, "🔥", "Preparing"),
+        (OrderStatus.Ready, "✅", "Ready"),
+        (OrderStatus.EnRoute, "🏃", "On Way"),
+        (OrderStatus.Delivered, "🎉", "Delivered")
+    };
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadOrder();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await LoadOrder();
-        await SetupSignalR();
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            await SetupSignalR();
+            StateHasChanged();
+        }
     }
 
     private async Task SetupSignalR()
@@ -123,16 +101,10 @@
             .WithUrl(Navigation.ToAbsoluteUri("/orderhub"))
             .WithAutomaticReconnect()
             .Build();
-
-        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (orderId, newStatus) =>
+        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (id, _) =>
         {
-            if (orderId == OrderId)
-            {
-                await LoadOrder();
-                await InvokeAsync(StateHasChanged);
-            }
+            if (id == OrderId) { await LoadOrder(); await InvokeAsync(StateHasChanged); }
         });
-
         await _hubConnection.StartAsync();
         await _hubConnection.InvokeAsync("JoinOrderGroup", OrderId.ToString());
     }
@@ -140,10 +112,7 @@
     private async Task LoadOrder()
     {
         var result = await OrderService.GetOrderAsync(OrderId);
-        if (result.IsSuccess)
-        {
-            _order = result.Value;
-        }
+        if (result.IsSuccess) _order = result.Value;
     }
 
     private string GetStatusAlertClass() => _order?.Status switch
@@ -158,19 +127,13 @@
 
     private string GetStatusMessage() => _order?.Status switch
     {
-        OrderStatus.Received => "Your order has been received!",
-        OrderStatus.Preparing => "Kitchen is preparing your food...",
-        OrderStatus.Ready => "Your order is ready for pickup!",
-        OrderStatus.EnRoute => "Runner is on the way to your seat!",
-        OrderStatus.Delivered => "Enjoy your meal! 🎉",
-        _ => "Unknown status"
+        OrderStatus.Received => "Order received!",
+        OrderStatus.Preparing => "Kitchen is preparing...",
+        OrderStatus.Ready => "Ready for pickup!",
+        OrderStatus.EnRoute => "Runner on the way!",
+        OrderStatus.Delivered => "Enjoy! 🎉",
+        _ => "Unknown"
     };
 
-    public async ValueTask DisposeAsync()
-    {
-        if (_hubConnection != null)
-        {
-            await _hubConnection.DisposeAsync();
-        }
-    }
+    public async ValueTask DisposeAsync() { if (_hubConnection != null) await _hubConnection.DisposeAsync(); }
 }

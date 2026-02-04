@@ -23,7 +23,6 @@
     </div>
 
     <div class="row">
-        <!-- New Orders -->
         <div class="col-md-4">
             <div class="card border-danger h-100">
                 <div class="card-header bg-danger text-white d-flex justify-content-between">
@@ -45,22 +44,14 @@
                                         <li><small>@item.Quantity x @item.Name</small></li>
                                     }
                                 </ul>
-                                <button class="btn btn-warning btn-sm w-100" 
-                                        @onclick="() => MarkAsPreparing(order.Id)">
-                                    Start Preparing
-                                </button>
+                                <button class="btn btn-warning btn-sm w-100" @onclick="() => MarkAsPreparing(order.Id)">Start Preparing</button>
                             </div>
                         </div>
                     }
-                    @if (!_receivedOrders.Any())
-                    {
-                        <p class="text-muted text-center">No new orders</p>
-                    }
+                    @if (!_receivedOrders.Any()) { <p class="text-muted text-center">No new orders</p> }
                 </div>
             </div>
         </div>
-
-        <!-- Preparing -->
         <div class="col-md-4">
             <div class="card border-warning h-100">
                 <div class="card-header bg-warning d-flex justify-content-between">
@@ -77,31 +68,20 @@
                                     <small class="text-muted">@order.CreatedAt.ToLocalTime().ToString("HH:mm")</small>
                                 </div>
                                 <ul class="list-unstyled mb-2">
-                                    @foreach (var item in order.Items)
-                                    {
-                                        <li><small>@item.Quantity x @item.Name</small></li>
-                                    }
+                                    @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
                                 </ul>
-                                <button class="btn btn-success btn-sm w-100" 
-                                        @onclick="() => MarkAsReady(order.Id)">
-                                    Mark Ready ✓
-                                </button>
+                                <button class="btn btn-success btn-sm w-100" @onclick="() => MarkAsReady(order.Id)">Mark Ready</button>
                             </div>
                         </div>
                     }
-                    @if (!_preparingOrders.Any())
-                    {
-                        <p class="text-muted text-center">Nothing cooking</p>
-                    }
+                    @if (!_preparingOrders.Any()) { <p class="text-muted text-center">Nothing cooking</p> }
                 </div>
             </div>
         </div>
-
-        <!-- Ready for Pickup -->
         <div class="col-md-4">
             <div class="card border-success h-100">
                 <div class="card-header bg-success text-white d-flex justify-content-between">
-                    <span>✅ Ready for Pickup</span>
+                    <span>✅ Ready</span>
                     <span class="badge bg-white text-success">@_readyOrders.Count</span>
                 </div>
                 <div class="card-body overflow-auto" style="max-height: 70vh;">
@@ -109,26 +89,15 @@
                     {
                         <div class="card mb-2 border-success">
                             <div class="card-body p-2">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <strong class="text-success">@order.SeatLocation</strong>
-                                    <small class="text-muted">@order.CreatedAt.ToLocalTime().ToString("HH:mm")</small>
-                                </div>
-                                <ul class="list-unstyled mb-0">
-                                    @foreach (var item in order.Items)
-                                    {
-                                        <li><small>@item.Quantity x @item.Name</small></li>
-                                    }
+                                <strong class="text-success">@order.SeatLocation</strong>
+                                <ul class="list-unstyled mb-0 mt-2">
+                                    @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
                                 </ul>
-                                <div class="mt-2 text-center">
-                                    <span class="badge bg-info">Waiting for runner...</span>
-                                </div>
+                                <div class="mt-2 text-center"><span class="badge bg-info">Waiting for runner...</span></div>
                             </div>
                         </div>
                     }
-                    @if (!_readyOrders.Any())
-                    {
-                        <p class="text-muted text-center">No orders ready</p>
-                    }
+                    @if (!_readyOrders.Any()) { <p class="text-muted text-center">No orders ready</p> }
                 </div>
             </div>
         </div>
@@ -140,11 +109,18 @@
     private List<OrderResponse> _preparingOrders = new();
     private List<OrderResponse> _readyOrders = new();
     private HubConnection? _hubConnection;
+    private bool _initialized;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadOrders();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await LoadOrders();
-        await SetupSignalR();
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            await SetupSignalR();
+            StateHasChanged();
+        }
     }
 
     private async Task SetupSignalR()
@@ -153,51 +129,23 @@
             .WithUrl(Navigation.ToAbsoluteUri("/orderhub"))
             .WithAutomaticReconnect()
             .Build();
-
-        _hubConnection.On<Guid, string>("NewOrderReceived", async (orderId, seatLocation) =>
-        {
-            await LoadOrders();
-            await InvokeAsync(StateHasChanged);
-        });
-
-        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (orderId, newStatus) =>
-        {
-            await LoadOrders();
-            await InvokeAsync(StateHasChanged);
-        });
-
+        _hubConnection.On<Guid, string>("NewOrderReceived", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
+        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
         await _hubConnection.StartAsync();
         await _hubConnection.InvokeAsync("JoinKitchenGroup");
     }
 
     private async Task LoadOrders()
     {
-        var received = await OrderService.GetOrdersByStatusAsync(OrderStatus.Received);
-        var preparing = await OrderService.GetOrdersByStatusAsync(OrderStatus.Preparing);
-        var ready = await OrderService.GetOrdersByStatusAsync(OrderStatus.Ready);
-
-        if (received.IsSuccess) _receivedOrders = received.Value!.ToList();
-        if (preparing.IsSuccess) _preparingOrders = preparing.Value!.ToList();
-        if (ready.IsSuccess) _readyOrders = ready.Value!.ToList();
+        var r = await OrderService.GetOrdersByStatusAsync(OrderStatus.Received);
+        var p = await OrderService.GetOrdersByStatusAsync(OrderStatus.Preparing);
+        var y = await OrderService.GetOrdersByStatusAsync(OrderStatus.Ready);
+        if (r.IsSuccess) _receivedOrders = r.Value!.ToList();
+        if (p.IsSuccess) _preparingOrders = p.Value!.ToList();
+        if (y.IsSuccess) _readyOrders = y.Value!.ToList();
     }
 
-    private async Task MarkAsPreparing(Guid orderId)
-    {
-        await OrderService.UpdateOrderStatusAsync(orderId, OrderStatus.Preparing);
-        await LoadOrders();
-    }
-
-    private async Task MarkAsReady(Guid orderId)
-    {
-        await OrderService.UpdateOrderStatusAsync(orderId, OrderStatus.Ready);
-        await LoadOrders();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_hubConnection != null)
-        {
-            await _hubConnection.DisposeAsync();
-        }
-    }
+    private async Task MarkAsPreparing(Guid id) { await OrderService.UpdateOrderStatusAsync(id, OrderStatus.Preparing); await LoadOrders(); }
+    private async Task MarkAsReady(Guid id) { await OrderService.UpdateOrderStatusAsync(id, OrderStatus.Ready); await LoadOrders(); }
+    public async ValueTask DisposeAsync() { if (_hubConnection != null) await _hubConnection.DisposeAsync(); }
 }
