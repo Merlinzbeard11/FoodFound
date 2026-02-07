@@ -10,153 +10,134 @@
 
 <PageTitle>Order - FoodFound</PageTitle>
 
-<div class="container py-4">
-    <div class="row mb-4">
-        <div class="col-12 text-center">
-            <h1 class="display-5 fw-bold" style="color: #ff6b35;">
-                🍔 FoodFound
-            </h1>
-            <p class="lead text-muted">Order delivered to your seat</p>
+<div class="order-page">
+    <!-- Top Bar -->
+    <header class="order-topbar">
+        <div class="order-topbar-inner">
+            <a href="/" class="order-back">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                <span class="order-back-text">FoodFound</span>
+            </a>
+            @if (_cart.Any() && !_orderPlaced)
+            {
+                <button type="button" class="order-cart-icon" @onclick="ScrollToCart">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
+                    <span class="order-cart-badge">@_cart.Values.Sum()</span>
+                </button>
+            }
         </div>
-    </div>
+    </header>
 
     @if (_orderPlaced)
     {
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card border-0 shadow">
-                    <div class="card-body text-center py-5">
-                        <div class="display-1 text-success mb-3">✓</div>
-                        <h2 class="card-title">Order Confirmed!</h2>
-                        <p class="lead">Your food is being prepared</p>
-                        <div class="alert mt-3" style="background-color: #fff3e6; border-color: #ff6b35;">
-                            <strong>Order #@_confirmedOrderId?.ToString()[..8]</strong><br/>
-                            <small>Est. delivery: ~15 minutes</small>
-                        </div>
-                        <a href="/track/@_confirmedOrderId" class="btn btn-lg mt-3" style="background-color: #ff6b35; color: white;">
-                            Track Order
-                        </a>
-                    </div>
+        <!-- Confirmation -->
+        <div class="order-confirm">
+            <div class="order-confirm-card">
+                <div class="order-confirm-check">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </div>
+                <h2 class="order-confirm-title">Order Confirmed!</h2>
+                <p class="order-confirm-id">Order #@_confirmedOrderId?.ToString()[..8]</p>
+                <div class="order-confirm-eta">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Estimated delivery: ~15 minutes
+                </div>
+                <a href="/track/@_confirmedOrderId" class="order-confirm-track">Track Your Order</a>
+                <span class="order-confirm-or">or</span>
+                <button type="button" class="order-confirm-new" @onclick="StartNewOrder">New Order</button>
             </div>
         </div>
     }
     else
     {
-        <div class="row">
-            <div class="col-md-4 mb-4">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-header text-white" style="background-color: #ff6b35;">
-                        <h5 class="mb-0">📍 Your Seat</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-3">
-                            <label class="form-label">Section</label>
-                            <input type="text" class="form-control form-control-lg" @bind="_section" placeholder="101" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Row</label>
-                            <input type="text" class="form-control form-control-lg" @bind="_row" placeholder="A" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Seat</label>
-                            <input type="number" class="form-control form-control-lg" @bind="_seatNumber" min="1" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-8 mb-4">
-                <div class="card shadow-sm border-0">
-                    <div class="card-header text-white" style="background-color: #dc3545;">
-                        <h5 class="mb-0">🍟 Menu</h5>
-                    </div>
-                    <div class="card-body">
-                        @if (_menuItems == null)
-                        {
-                            <div class="text-center py-4">
-                                <div class="spinner-border" style="color: #ff6b35;"></div>
-                            </div>
-                        }
-                        else
-                        {
-                            @foreach (var category in _menuItems.GroupBy(m => m.Category))
-                            {
-                                <h6 class="text-muted border-bottom pb-2 mt-3">@category.Key</h6>
-                                <div class="row">
-                                    @foreach (var item in category)
-                                    {
-                                        <div class="col-md-6 mb-3">
-                                            <div class="card h-100 border">
-                                                <div class="card-body d-flex justify-content-between align-items-center p-3">
-                                                    <div>
-                                                        <h6 class="mb-1">@item.Name</h6>
-                                                        <small class="fw-bold" style="color: #ff6b35;">$@item.Price.ToString("F2")</small>
-                                                    </div>
-                                                    <div class="btn-group">
-                                                        @if (_cart.ContainsKey(item.Id))
-                                                        {
-                                                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveFromCart(item.Id)">-</button>
-                                                            <span class="btn btn-light btn-sm disabled">@_cart[item.Id]</span>
-                                                            <button class="btn btn-outline-success btn-sm" @onclick="() => AddToCart(item)">+</button>
-                                                        }
-                                                        else
-                                                        {
-                                                            <button class="btn btn-sm" style="background-color: #28a745; color: white;" @onclick="() => AddToCart(item)">Add</button>
-                                                        }
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        }
-                    </div>
-                </div>
-            </div>
+        <!-- Seat Banner -->
+        <div class="order-seat-banner">
+            <span class="order-seat-label">Delivering to:</span>
+            <input type="text" class="order-seat-input" @bind="_section" placeholder="Sec" />
+            <input type="text" class="order-seat-input" @bind="_row" placeholder="Row" />
+            <input type="number" class="order-seat-input order-seat-input-num" @bind="_seatNumber" min="1" placeholder="Seat" />
         </div>
 
-        @if (_cart.Any())
+        <!-- Category Tabs -->
+        @if (_menuItems != null)
         {
-            <div class="row">
-                <div class="col-12">
-                    <div class="card shadow border-0" style="border-top: 4px solid #ff6b35 !important;">
-                        <div class="card-header" style="background-color: #fff3e6;">
-                            <h5 class="mb-0">🛒 Your Order</h5>
+            <div class="order-cat-tabs">
+                @foreach (var cat in _menuItems.Select(m => m.Category).Distinct())
+                {
+                    <button type="button"
+                            class="order-cat-pill @(_activeCategory == cat ? "order-cat-pill-active" : "")"
+                            @onclick="() => _activeCategory = cat">
+                        @cat
+                    </button>
+                }
+            </div>
+        }
+
+        <!-- Menu -->
+        <div class="order-menu">
+            @if (_menuItems == null)
+            {
+                <div class="order-loading">
+                    <div class="order-loading-dot"></div>
+                    <div class="order-loading-dot"></div>
+                    <div class="order-loading-dot"></div>
+                </div>
+            }
+            else
+            {
+                @foreach (var category in _menuItems.GroupBy(m => m.Category))
+                {
+                    <div class="order-menu-group" style="@(_activeCategory != null && _activeCategory != category.Key ? "display:none;" : "")">
+                        <div class="order-menu-cat-header">
+                            <span class="order-menu-cat-accent"></span>
+                            <h3 class="order-menu-cat-title">@category.Key</h3>
                         </div>
-                        <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    @foreach (var item in _cart)
+                        @foreach (var item in category)
+                        {
+                            <div class="order-menu-item">
+                                <div class="order-menu-item-img">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 11h.01"/><path d="M11 15h.01"/><path d="M16 16h.01"/><path d="m2 16 20 6-6-20A20 20 0 0 0 2 16"/></svg>
+                                </div>
+                                <div class="order-menu-item-info">
+                                    <span class="order-menu-item-name">@item.Name</span>
+                                    <span class="order-menu-item-desc">@item.Description</span>
+                                    <span class="order-menu-item-price">$@item.Price.ToString("F2")</span>
+                                </div>
+                                <div class="order-menu-item-actions">
+                                    @if (_cart.ContainsKey(item.Id))
                                     {
-                                        var menuItem = _menuItems?.FirstOrDefault(m => m.Id == item.Key);
-                                        if (menuItem != null)
-                                        {
-                                            <span class="badge me-2 mb-2 p-2" style="background-color: #ff6b35;">
-                                                @item.Value x @menuItem.Name
-                                            </span>
-                                        }
+                                        <button type="button" class="order-qty-btn order-qty-minus" @onclick="() => RemoveFromCart(item.Id)">-</button>
+                                        <span class="order-qty-count">@_cart[item.Id]</span>
+                                        <button type="button" class="order-qty-btn order-qty-plus" @onclick="() => AddToCart(item)">+</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="order-add-btn" @onclick="() => AddToCart(item)">Add</button>
                                     }
                                 </div>
-                                <div class="col-md-4 text-end">
-                                    <h4 class="mb-0" style="color: #ff6b35;">Total: $@CalculateTotal().ToString("F2")</h4>
-                                </div>
                             </div>
-                            @if (!string.IsNullOrEmpty(_error))
-                            {
-                                <div class="alert alert-danger mt-3">@_error</div>
-                            }
-                            <div class="mt-3 text-end">
-                                <button class="btn btn-lg" style="background-color: #28a745; color: white;" @onclick="PlaceOrder" disabled="@_isSubmitting">
-                                    @if (_isSubmitting) { <span class="spinner-border spinner-border-sm me-2"></span> }
-                                    Place Order 🚀
-                                </button>
-                            </div>
-                        </div>
+                        }
                     </div>
-                </div>
+                }
+            }
+        </div>
+
+        <!-- Bottom Cart Bar -->
+        @if (_cart.Any())
+        {
+            <div class="order-cart-bar" id="cart-section">
+                <span class="order-cart-summary">@_cart.Values.Sum() items</span>
+                <span class="order-cart-total">$@CalculateTotal().ToString("F2")</span>
+                <button type="button" class="order-place-btn" @onclick="PlaceOrder" disabled="@_isSubmitting">
+                    @if (_isSubmitting) { <span class="order-spinner"></span> }
+                    Place Order
+                </button>
             </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="order-error">@_error</div>
         }
     }
 </div>
@@ -175,6 +156,7 @@
     private bool _orderPlaced;
     private Guid? _confirmedOrderId;
     private string? _error;
+    private string? _activeCategory;
 
     protected override async Task OnInitializedAsync()
     {
@@ -200,7 +182,8 @@
         }
     }
 
-    private decimal CalculateTotal() => _cart.Sum(c => {
+    private decimal CalculateTotal() => _cart.Sum(c =>
+    {
         var item = _menuItems?.FirstOrDefault(m => m.Id == c.Key);
         return item?.Price * c.Value ?? 0;
     });
@@ -209,10 +192,21 @@
     {
         _error = null;
         _isSubmitting = true;
-        var request = new CreateOrderRequest(_section, _row, _seatNumber, _cart.Select(c => new OrderItemRequest(c.Key, c.Value)).ToList());
+        var request = new CreateOrderRequest(_section, _row, _seatNumber,
+            _cart.Select(c => new OrderItemRequest(c.Key, c.Value)).ToList());
         var result = await OrderService.CreateOrderAsync(request);
         if (result.IsSuccess) { _orderPlaced = true; _confirmedOrderId = result.Value!.Id; }
         else { _error = result.Error; }
         _isSubmitting = false;
     }
+
+    private void StartNewOrder()
+    {
+        _orderPlaced = false;
+        _confirmedOrderId = null;
+        _cart.Clear();
+        _error = null;
+    }
+
+    private void ScrollToCart() { }
 }

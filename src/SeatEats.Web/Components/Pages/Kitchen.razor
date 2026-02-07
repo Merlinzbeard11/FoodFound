@@ -10,96 +10,130 @@
 
 <PageTitle>Kitchen - FoodFound</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="row mb-3">
-        <div class="col">
-            <h2><span style="color: #ff6b35;">👨‍🍳 Kitchen</span> Dashboard</h2>
+<div class="kitchen-page">
+    <!-- Top Bar -->
+    <header class="kitchen-topbar">
+        <div class="kitchen-topbar-inner">
+            <div class="kitchen-topbar-left">
+                <h1 class="kitchen-title">Kitchen</h1>
+                <span class="kitchen-subtitle">Auto-updating every 5s</span>
+            </div>
+            <div class="kitchen-topbar-right">
+                <span class="kitchen-clock">@_currentTime</span>
+                <span class="kitchen-badge-active">
+                    @TotalActiveOrders
+                    <span class="kitchen-badge-label">active</span>
+                </span>
+                <span class="kitchen-live-indicator @(_hubConnection?.State == HubConnectionState.Connected ? "kitchen-live-on" : "kitchen-live-off")">
+                    @(_hubConnection?.State == HubConnectionState.Connected ? "LIVE" : "...")
+                </span>
+                <button type="button" class="kitchen-refresh-btn" @onclick="HandleRefresh" aria-label="Refresh orders">
+                    <svg class="kitchen-refresh-icon @(_spinning ? "kitchen-spin-once" : "")" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                    </svg>
+                </button>
+            </div>
         </div>
-        <div class="col-auto d-flex align-items-center gap-2">
-            <button class="btn btn-outline-secondary btn-sm" @onclick="LoadOrders">🔄 Refresh</button>
-            <span class="badge @(_hubConnection?.State == HubConnectionState.Connected ? "bg-success" : "bg-warning") fs-6">
-                @(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄 Connecting...")
-            </span>
-        </div>
-    </div>
+    </header>
 
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm" style="border-top: 4px solid #dc3545;">
-                <div class="card-header bg-danger text-white d-flex justify-content-between">
-                    <span>🆕 New Orders</span>
-                    <span class="badge bg-white text-danger">@_receivedOrders.Count</span>
+    <!-- Kanban Board -->
+    <main class="kitchen-board">
+        <div class="kitchen-columns">
+            <!-- NEW ORDERS -->
+            <div class="kitchen-column">
+                <div class="kitchen-col-header kitchen-col-red">
+                    <span class="kitchen-col-label">NEW ORDERS</span>
+                    <span class="kitchen-col-count kitchen-col-count-light">@_receivedOrders.Count</span>
                 </div>
-                <div class="card-body overflow-auto" style="max-height: 70vh;">
+                <div class="kitchen-col-body">
+                    @if (!_receivedOrders.Any())
+                    {
+                        <p class="kitchen-empty">No orders</p>
+                    }
                     @foreach (var order in _receivedOrders)
                     {
-                        <div class="card mb-2 border-danger">
-                            <div class="card-body p-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <strong class="text-danger">@order.SeatLocation</strong>
-                                    <small class="text-muted">@order.CreatedAt.ToLocalTime().ToString("HH:mm")</small>
-                                </div>
-                                <ul class="list-unstyled mb-2">
-                                    @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
-                                </ul>
-                                <button class="btn btn-warning btn-sm w-100" @onclick="() => MarkAsPreparing(order.Id)">Start Preparing</button>
+                        <div class="kitchen-card kitchen-card-border-red">
+                            <div class="kitchen-card-header">
+                                <span class="kitchen-card-seat">@FormatSeat(order.SeatLocation)</span>
+                                <span class="kitchen-card-time">@GetTimeAgo(order.CreatedAt)</span>
                             </div>
+                            <div class="kitchen-card-divider"></div>
+                            <p class="kitchen-card-items">@FormatItems(order.Items)</p>
+                            <p class="kitchen-card-total">$@order.TotalAmount.ToString("F2")</p>
+                            <button type="button" class="kitchen-btn kitchen-btn-red" @onclick="() => MarkAsPreparing(order.Id)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-2-3.92-2-6.5 0 0 3.5 1 6.5 4.5 0 0-1.5 2-1.5 3.5a2.5 2.5 0 0 0 5 0c0-1.5 0-2-.5-3C18 5 22 2 22 2c0 4-2.5 8-3 10-.56 2.24 1.56 3.67 3 5-2 0-4-1-5.5-2C14.5 18 12 22 12 22s-2.5-4-4.5-7.5c-1-1.5-1.5-2.5-1.5-3.5"/></svg>
+                                Start Preparing
+                            </button>
                         </div>
                     }
-                    @if (!_receivedOrders.Any()) { <p class="text-muted text-center py-4">No new orders</p> }
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm" style="border-top: 4px solid #ffc107;">
-                <div class="card-header bg-warning d-flex justify-content-between">
-                    <span>🔥 Preparing</span>
-                    <span class="badge bg-dark">@_preparingOrders.Count</span>
+
+            <!-- PREPARING -->
+            <div class="kitchen-column">
+                <div class="kitchen-col-header kitchen-col-yellow">
+                    <span class="kitchen-col-label kitchen-col-label-dark">PREPARING</span>
+                    <span class="kitchen-col-count kitchen-col-count-dark">@_preparingOrders.Count</span>
                 </div>
-                <div class="card-body overflow-auto" style="max-height: 70vh;">
+                <div class="kitchen-col-body">
+                    @if (!_preparingOrders.Any())
+                    {
+                        <p class="kitchen-empty">Nothing cooking</p>
+                    }
                     @foreach (var order in _preparingOrders)
                     {
-                        <div class="card mb-2 border-warning">
-                            <div class="card-body p-3">
-                                <div class="d-flex justify-content-between mb-2">
-                                    <strong style="color: #ff6b35;">@order.SeatLocation</strong>
-                                    <small class="text-muted">@order.CreatedAt.ToLocalTime().ToString("HH:mm")</small>
-                                </div>
-                                <ul class="list-unstyled mb-2">
-                                    @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
-                                </ul>
-                                <button class="btn btn-success btn-sm w-100" @onclick="() => MarkAsReady(order.Id)">Mark Ready ✓</button>
+                        <div class="kitchen-card kitchen-card-border-yellow">
+                            <div class="kitchen-card-header">
+                                <span class="kitchen-card-seat">@FormatSeat(order.SeatLocation)</span>
+                                <span class="kitchen-card-time">@GetTimeAgo(order.CreatedAt)</span>
                             </div>
+                            <div class="kitchen-card-divider"></div>
+                            <p class="kitchen-card-items">@FormatItems(order.Items)</p>
+                            <p class="kitchen-card-total">$@order.TotalAmount.ToString("F2")</p>
+                            <div class="kitchen-preparing-status">
+                                <span class="kitchen-pulse-dot"></span>
+                                <span class="kitchen-preparing-text">Preparing...</span>
+                            </div>
+                            <button type="button" class="kitchen-btn kitchen-btn-yellow" @onclick="() => MarkAsReady(order.Id)">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                Mark Ready
+                            </button>
                         </div>
                     }
-                    @if (!_preparingOrders.Any()) { <p class="text-muted text-center py-4">Nothing cooking</p> }
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm" style="border-top: 4px solid #28a745;">
-                <div class="card-header bg-success text-white d-flex justify-content-between">
-                    <span>✅ Ready</span>
-                    <span class="badge bg-white text-success">@_readyOrders.Count</span>
+
+            <!-- READY FOR PICKUP -->
+            <div class="kitchen-column">
+                <div class="kitchen-col-header kitchen-col-green">
+                    <span class="kitchen-col-label">READY FOR PICKUP</span>
+                    <span class="kitchen-col-count kitchen-col-count-light">@_readyOrders.Count</span>
                 </div>
-                <div class="card-body overflow-auto" style="max-height: 70vh;">
+                <div class="kitchen-col-body">
+                    @if (!_readyOrders.Any())
+                    {
+                        <p class="kitchen-empty">No orders ready</p>
+                    }
                     @foreach (var order in _readyOrders)
                     {
-                        <div class="card mb-2 border-success">
-                            <div class="card-body p-3">
-                                <strong class="text-success">@order.SeatLocation</strong>
-                                <ul class="list-unstyled mb-0 mt-2">
-                                    @foreach (var item in order.Items) { <li><small>@item.Quantity x @item.Name</small></li> }
-                                </ul>
-                                <div class="mt-2 text-center"><span class="badge" style="background-color: #ff6b35;">Waiting for runner</span></div>
+                        <div class="kitchen-card kitchen-card-border-green kitchen-card-glow">
+                            <div class="kitchen-card-header">
+                                <span class="kitchen-card-seat">@FormatSeat(order.SeatLocation)</span>
+                                <span class="kitchen-card-time">@GetTimeAgo(order.CreatedAt)</span>
+                            </div>
+                            <div class="kitchen-card-divider"></div>
+                            <p class="kitchen-card-items">@FormatItems(order.Items)</p>
+                            <p class="kitchen-card-total">$@order.TotalAmount.ToString("F2")</p>
+                            <div class="kitchen-awaiting-runner">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="m9 22 3-9 3 9"/><path d="m6 13 3-3 3 3 3-3 3 3"/></svg>
+                                <span>Awaiting runner</span>
                             </div>
                         </div>
                     }
-                    @if (!_readyOrders.Any()) { <p class="text-muted text-center py-4">No orders ready</p> }
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </div>
 
 @code {
@@ -108,19 +142,58 @@
     private List<OrderResponse> _readyOrders = new();
     private HubConnection? _hubConnection;
     private bool _initialized;
+    private bool _spinning;
+    private string _currentTime = "";
+    private System.Threading.Timer? _clockTimer;
 
-    protected override async Task OnInitializedAsync() => await LoadOrders();
+    private int TotalActiveOrders => _receivedOrders.Count + _preparingOrders.Count + _readyOrders.Count;
+
+    protected override async Task OnInitializedAsync()
+    {
+        UpdateClock();
+        _clockTimer = new System.Threading.Timer(_ =>
+        {
+            UpdateClock();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+        await LoadOrders();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !_initialized) { _initialized = true; await SetupSignalR(); StateHasChanged(); }
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            await SetupSignalR();
+            StateHasChanged();
+        }
+    }
+
+    private void UpdateClock()
+    {
+        _currentTime = DateTime.Now.ToString("hh:mm:ss tt");
     }
 
     private async Task SetupSignalR()
     {
-        _hubConnection = new HubConnectionBuilder().WithUrl(Navigation.ToAbsoluteUri("/orderhub")).WithAutomaticReconnect().Build();
-        _hubConnection.On<Guid, string>("NewOrderReceived", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
-        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (_, _) => { await LoadOrders(); await InvokeAsync(StateHasChanged); });
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/orderhub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<Guid, string>("NewOrderReceived", async (_, _) =>
+        {
+            await LoadOrders();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.On<Guid, OrderStatus>("OrderStatusChanged", async (_, _) =>
+        {
+            await LoadOrders();
+            await InvokeAsync(StateHasChanged);
+        });
+
         await _hubConnection.StartAsync();
         await _hubConnection.InvokeAsync("JoinKitchenGroup");
     }
@@ -135,7 +208,52 @@
         if (y.IsSuccess) _readyOrders = y.Value!.ToList();
     }
 
-    private async Task MarkAsPreparing(Guid id) { await OrderService.UpdateOrderStatusAsync(id, OrderStatus.Preparing); await LoadOrders(); }
-    private async Task MarkAsReady(Guid id) { await OrderService.UpdateOrderStatusAsync(id, OrderStatus.Ready); await LoadOrders(); }
-    public async ValueTask DisposeAsync() { if (_hubConnection != null) await _hubConnection.DisposeAsync(); }
+    private async Task MarkAsPreparing(Guid id)
+    {
+        await OrderService.UpdateOrderStatusAsync(id, OrderStatus.Preparing);
+        await LoadOrders();
+    }
+
+    private async Task MarkAsReady(Guid id)
+    {
+        await OrderService.UpdateOrderStatusAsync(id, OrderStatus.Ready);
+        await LoadOrders();
+    }
+
+    private async Task HandleRefresh()
+    {
+        _spinning = true;
+        StateHasChanged();
+        await LoadOrders();
+        await Task.Delay(600);
+        _spinning = false;
+    }
+
+    private static string FormatSeat(string seatLocation)
+    {
+        // Input: "Section 101, Row A, Seat 1" -> Output: "Sec 101 · Row A · Seat 1"
+        return seatLocation
+            .Replace("Section ", "Sec ")
+            .Replace(", ", " \u00b7 ");
+    }
+
+    private static string FormatItems(List<OrderItemResponse> items)
+    {
+        return string.Join(", ", items.Select(i => $"{i.Quantity}x {i.Name}"));
+    }
+
+    private static string GetTimeAgo(DateTime createdAt)
+    {
+        var diff = DateTime.UtcNow - createdAt.ToUniversalTime();
+        if (diff.TotalMinutes < 1) return "Just now";
+        if (diff.TotalMinutes < 2) return "1 min ago";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes} min ago";
+        return $"{(int)diff.TotalHours}h ago";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _clockTimer?.Dispose();
+        if (_hubConnection != null) await _hubConnection.DisposeAsync();
+    }
 }

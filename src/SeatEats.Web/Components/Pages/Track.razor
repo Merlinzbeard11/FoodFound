@@ -10,62 +10,80 @@
 
 <PageTitle>Track Order - FoodFound</PageTitle>
 
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            @if (_order == null)
-            {
-                <div class="text-center py-5"><div class="spinner-border" style="color: #ff6b35;"></div></div>
-            }
-            else
-            {
-                <div class="card shadow border-0">
-                    <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #ff6b35;">
-                        <h4 class="mb-0">📍 Track Your Order</h4>
-                        <span class="badge bg-light text-dark">@(_hubConnection?.State == HubConnectionState.Connected ? "🟢 Live" : "🔄")</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center mb-4">
-                            <h5>Delivering to: <span style="color: #ff6b35;">@_order.SeatLocation</span></h5>
+<div class="track-page">
+    <!-- Top Bar -->
+    <header class="track-topbar">
+        <div class="track-topbar-inner">
+            <a href="/" class="track-back">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                <span>FoodFound</span>
+            </a>
+            <span class="track-live @(_hubConnection?.State == HubConnectionState.Connected ? "track-live-on" : "track-live-off")">
+                @(_hubConnection?.State == HubConnectionState.Connected ? "LIVE" : "...")
+            </span>
+        </div>
+    </header>
+
+    <div class="track-content">
+        @if (_order == null)
+        {
+            <div class="track-loading">
+                <div class="order-loading-dot"></div>
+                <div class="order-loading-dot"></div>
+                <div class="order-loading-dot"></div>
+            </div>
+        }
+        else
+        {
+            <div class="track-card">
+                <!-- Seat -->
+                <div class="track-seat">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span>@_order.SeatLocation</span>
+                </div>
+
+                <!-- Progress Steps -->
+                <div class="track-steps">
+                    <div class="track-steps-line"></div>
+                    <div class="track-steps-fill" style="width: @GetProgressWidth()"></div>
+                    @foreach (var (status, icon, label) in _steps)
+                    {
+                        var isActive = _order.Status >= status;
+                        var isCurrent = _order.Status == status;
+                        <div class="track-step @(isActive ? "track-step-active" : "") @(isCurrent ? "track-step-current" : "")">
+                            <div class="track-step-circle">@icon</div>
+                            <span class="track-step-label">@label</span>
                         </div>
-                        <div class="d-flex justify-content-between mb-4 position-relative">
-                            <div class="position-absolute top-50 start-0 end-0" style="height: 4px; background: #e9ecef; z-index: 0; transform: translateY(-50%);"></div>
-                            @foreach (var (status, emoji, label) in _steps)
-                            {
-                                var isActive = _order.Status >= status;
-                                var isCurrent = _order.Status == status;
-                                <div class="text-center position-relative" style="z-index: 1;">
-                                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2" 
-                                         style="width: 50px; height: 50px; background-color: @(isActive ? "#28a745" : "#6c757d"); @(isCurrent ? "box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.4);" : "")">
-                                        <span class="fs-4">@emoji</span>
-                                    </div>
-                                    <small class="@(isActive ? "fw-bold" : "text-muted")" style="@(isActive ? "color: #28a745;" : "")">@label</small>
-                                </div>
-                            }
+                    }
+                </div>
+
+                <!-- Status Message -->
+                <div class="track-status-msg @(_order.Status == OrderStatus.Delivered ? "track-status-done" : "")">
+                    @GetStatusMessage()
+                </div>
+
+                <!-- Order Details -->
+                <div class="track-details">
+                    <h3 class="track-details-title">Order Details</h3>
+                    @foreach (var item in _order.Items)
+                    {
+                        <div class="track-detail-row">
+                            <span>@item.Quantity x @item.Name</span>
+                            <span>$@item.TotalPrice.ToString("F2")</span>
                         </div>
-                        <div class="alert text-center" style="background-color: #fff3e6; border-color: #ff6b35;">
-                            <h5 class="mb-0" style="color: #ff6b35;">@GetStatusMessage()</h5>
-                        </div>
-                        <h6 class="mt-4">Order Details</h6>
-                        <ul class="list-group">
-                            @foreach (var item in _order.Items)
-                            {
-                                <li class="list-group-item d-flex justify-content-between">
-                                    <span>@item.Quantity x @item.Name</span><span>$@item.TotalPrice.ToString("F2")</span>
-                                </li>
-                            }
-                            <li class="list-group-item d-flex justify-content-between fw-bold" style="background-color: #fff3e6;">
-                                <span>Total</span><span style="color: #ff6b35;">$@_order.TotalAmount.ToString("F2")</span>
-                            </li>
-                        </ul>
-                        @if (_order.Status == OrderStatus.Delivered)
-                        {
-                            <div class="text-center mt-4"><a href="/order" class="btn btn-lg" style="background-color: #ff6b35; color: white;">Order Again 🍔</a></div>
-                        }
+                    }
+                    <div class="track-detail-total">
+                        <span>Total</span>
+                        <span>$@_order.TotalAmount.ToString("F2")</span>
                     </div>
                 </div>
-            }
-        </div>
+
+                @if (_order.Status == OrderStatus.Delivered)
+                {
+                    <a href="/order" class="track-reorder">Order Again</a>
+                }
+            </div>
+        }
     </div>
 </div>
 
@@ -74,13 +92,14 @@
     private OrderResponse? _order;
     private HubConnection? _hubConnection;
     private bool _initialized;
-    
-    private static readonly (OrderStatus, string, string)[] _steps = new[] {
-        (OrderStatus.Received, "📝", "Received"),
-        (OrderStatus.Preparing, "🔥", "Cooking"),
-        (OrderStatus.Ready, "✅", "Ready"),
-        (OrderStatus.EnRoute, "🏃", "On Way"),
-        (OrderStatus.Delivered, "🎉", "Done!")
+
+    private static readonly (OrderStatus, string, string)[] _steps = new[]
+    {
+        (OrderStatus.Received, "1", "Received"),
+        (OrderStatus.Preparing, "2", "Cooking"),
+        (OrderStatus.Ready, "3", "Ready"),
+        (OrderStatus.EnRoute, "4", "On Way"),
+        (OrderStatus.Delivered, "5", "Done!")
     };
 
     protected override async Task OnInitializedAsync() => await LoadOrder();
@@ -102,12 +121,22 @@
 
     private string GetStatusMessage() => _order?.Status switch
     {
-        OrderStatus.Received => "Order received! Kitchen notified.",
-        OrderStatus.Preparing => "Kitchen is cooking your food...",
-        OrderStatus.Ready => "Ready! Runner picking up now.",
-        OrderStatus.EnRoute => "Runner is on the way to your seat!",
-        OrderStatus.Delivered => "Delivered! Enjoy your meal! 🎉",
+        OrderStatus.Received => "Order received! Kitchen has been notified.",
+        OrderStatus.Preparing => "Your food is being prepared fresh...",
+        OrderStatus.Ready => "Ready! A runner is picking it up now.",
+        OrderStatus.EnRoute => "On the way to your seat!",
+        OrderStatus.Delivered => "Delivered! Enjoy your meal!",
         _ => "Unknown"
+    };
+
+    private string GetProgressWidth() => _order?.Status switch
+    {
+        OrderStatus.Received => "0%",
+        OrderStatus.Preparing => "25%",
+        OrderStatus.Ready => "50%",
+        OrderStatus.EnRoute => "75%",
+        OrderStatus.Delivered => "100%",
+        _ => "0%"
     };
 
     public async ValueTask DisposeAsync() { if (_hubConnection != null) await _hubConnection.DisposeAsync(); }
